@@ -1,0 +1,42 @@
+# 环境
+.env
+.venv
+env/
+venv/
+ENV/
+*.pyc
+__pycache__/
+*.egg-info/
+dist/
+build/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Streamlit
+.streamlit/
+.streamlit/secrets.toml
+
+# 上传的文件
+*.pdf
+uploads/
+temp/
+cache/
+
+# 输出文件
+*.xlsx
+*.csv
+*.json
+
+# OS
+Thumbs.db
+.DS_Store
+
+# 其他
+.pytest_cache/
+*.log
