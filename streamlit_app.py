@@ -162,7 +162,9 @@ class QuoteExtractor:
     def _find_and_parse_quote_table(self):
         """查找并解析报价表格"""
         if not self.tables:
-            st.warning("⚠️ 未找到表格，尝试从文本提取...")
+            st.warning("⚠️ 未找到结构化表格，尝试从文本提取...")
+            # 尝试从文本解析
+            self._parse_text_based_quote()
             return
         
         quote_table_info = self._identify_quote_table()
@@ -172,6 +174,81 @@ class QuoteExtractor:
         else:
             largest_table = max(self.tables, key=lambda x: len(x['data']))
             self._parse_table_based_quote(largest_table)
+    
+    def _parse_text_based_quote(self):
+        """从文本中解析报价数据"""
+        import re
+        
+        lines = self.text_content.split('\n')
+        
+        # 找表头行
+        header_idx = -1
+        for i, line in enumerate(lines):
+            if 'Item' in line and 'Material' in line and 'Description' in line:
+                header_idx = i
+                break
+        
+        if header_idx == -1:
+            return
+        
+        # 解析数据行
+        i = header_idx + 1
+        while i < len(lines):
+            line = lines[i].strip()
+            
+            # 跳过空行和分割线
+            if not line or '____' in line:
+                i += 1
+                continue
+            
+            # 跳过关税行
+            if 'Customs tariff' in line or 'tariff' in line:
+                i += 1
+                continue
+            
+            # 识别数据行 - 以数字开头
+            if re.match(r'^\d+\s+', line):
+                # 提取行数据
+                parts = line.split()
+                if len(parts) >= 4:
+                    # Item | Material | Description | Qty | Un | ...| NetPrice | Amount
+                    row = [''] * len(TARGET_COLUMNS)
+                    
+                    # Item号
+                    row[0] = parts[0]
+                    
+                    # 收集整个描述（可能跨多行）
+                    desc_parts = parts[1:]
+                    
+                    # 向前看找到完整数据
+                    j = i + 1
+                    while j < len(lines) and not re.match(r'^\d+\s+', lines[j].strip()) and 'Customs' not in lines[j]:
+                        next_line = lines[j].strip()
+                        if next_line and '____' not in next_line:
+                            desc_parts.extend(next_line.split())
+                        j += 1
+                    
+                    # 从parts中提取数字（从后向前）
+                    nums = []
+                    for p in reversed(parts[-4:]):
+                        try:
+                            num = float(p.replace(',', '.'))
+                            nums.insert(0, num)
+                        except:
+                            pass
+                    
+                    if len(nums) >= 2:
+                        row[5] = nums[-1]  # 总金额
+                        row[4] = nums[-2]  # 单价
+                    
+                    row[1] = ' '.join(desc_parts[:10])  # 描述（前10词）
+                    
+                    if any(row):
+                        self.extracted_data.append(row)
+                    
+                    i = j
+            else:
+                i += 1
     
     def _identify_quote_table(self):
         """智能识别报价表格"""
@@ -578,7 +655,7 @@ def main():
         st.markdown("**📝 版本：** 1.0")
     
     with col2:
-        st.markdown("**🔧 技术栈：** Streamlit + pdfplumber + openpyxl + pytesseract")
+        st.markdown("**🔧 技术栈：** Streamlit + pdfplumber + openpyxl")
     
     with col3:
         st.markdown("**👤 作者：** Zélie")
